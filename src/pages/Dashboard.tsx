@@ -37,6 +37,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 
 interface Presentation {
   id: string
@@ -67,6 +70,24 @@ interface Enlistment {
   createdAt: Date
 }
 
+interface Pilot {
+  id: string
+  name: string
+  position: string
+  photoURL: string
+  order: number
+  createdAt: Date
+}
+
+interface CarouselImage {
+  id: string
+  url: string
+  title: string
+  description: string
+  order: number
+  createdAt: Date
+}
+
 type DialogMode = 'manage' | 'edit' | 'create';
 type EnlistmentDialogMode = 'manage' | 'edit';
 
@@ -94,6 +115,28 @@ export default function Dashboard() {
   const [editEnlistmentStatus, setEditEnlistmentStatus] = useState<Enlistment['status']>('pending')
   const [enlistmentLoading, setEnlistmentLoading] = useState(false)
 
+  // Estado para a galeria
+  const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([])
+  const [selectedImages, setSelectedImages] = useState<string[]>([])
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false)
+  const [uploadLoading, setUploadLoading] = useState(false)
+  const [newImageTitle, setNewImageTitle] = useState('')
+  const [newImageDescription, setNewImageDescription] = useState('')
+  const [newImageFile, setNewImageFile] = useState<File | null>(null)
+  const [newImageOrder, setNewImageOrder] = useState(0)
+
+  // Estado para os pilotos
+  const [pilots, setPilots] = useState<Pilot[]>([])
+  const [selectedPilots, setSelectedPilots] = useState<string[]>([])
+  const [isPilotDialogOpen, setIsPilotDialogOpen] = useState(false)
+  const [isPilotDeleteAlertOpen, setIsPilotDeleteAlertOpen] = useState(false)
+  const [pilotLoading, setPilotLoading] = useState(false)
+  const [newPilotName, setNewPilotName] = useState('')
+  const [newPilotPosition, setNewPilotPosition] = useState('')
+  const [newPilotFile, setNewPilotFile] = useState<File | null>(null)
+  const [newPilotOrder, setNewPilotOrder] = useState(0)
+
   useEffect(() => {
     // Carregar apresentações
     const q = query(collection(db, 'presentations'), orderBy('createdAt', 'desc'))
@@ -118,9 +161,33 @@ export default function Dashboard() {
       setEnlistments(enlistmentsData)
     })
 
+    // Carregar imagens do carrossel
+    const carouselQuery = query(collection(db, 'carousel'), orderBy('order', 'asc'))
+    const unsubscribeCarousel = onSnapshot(carouselQuery, (snapshot) => {
+      const imagesData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt.toDate(),
+      })) as CarouselImage[]
+      setCarouselImages(imagesData)
+    })
+
+    // Carregar pilotos
+    const pilotsQuery = query(collection(db, 'pilots'), orderBy('order', 'asc'))
+    const unsubscribePilots = onSnapshot(pilotsQuery, (snapshot) => {
+      const pilotsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt.toDate(),
+      })) as Pilot[]
+      setPilots(pilotsData)
+    })
+
     return () => {
       unsubscribe()
       unsubscribeEnlistments()
+      unsubscribeCarousel()
+      unsubscribePilots()
     }
   }, [])
 
@@ -516,6 +583,101 @@ export default function Dashboard() {
     }
   }
 
+  // Funções para a galeria
+  const handleImageSelect = (imageId: string) => {
+    setSelectedImages(prev => 
+      prev.includes(imageId) 
+        ? prev.filter(id => id !== imageId)
+        : [...prev, imageId]
+    )
+  }
+
+  const handleSelectAll = () => {
+    setSelectedImages(prev => 
+      prev.length === carouselImages.length 
+        ? [] 
+        : carouselImages.map(img => img.id)
+    )
+  }
+
+  const handleUploadImage = async () => {
+    if (!newImageFile) {
+      toast.error('Selecione uma imagem para upload')
+      return
+    }
+
+    try {
+      setUploadLoading(true)
+      const storage = getStorage()
+      const storageRef = ref(storage, `carousel/${Date.now()}_${newImageFile.name}`)
+      
+      // Upload do arquivo
+      await uploadBytes(storageRef, newImageFile)
+      const url = await getDownloadURL(storageRef)
+      
+      // Salvar no Firestore
+      const imageData = {
+        url,
+        title: newImageTitle,
+        description: newImageDescription,
+        order: newImageOrder,
+        createdAt: new Date()
+      }
+      
+      await addDoc(collection(db, 'carousel'), imageData)
+      
+      toast.success('Imagem adicionada com sucesso')
+      setIsUploadDialogOpen(false)
+      resetUploadForm()
+    } catch (error) {
+      console.error('Erro ao fazer upload:', error)
+      toast.error('Erro ao fazer upload da imagem')
+    } finally {
+      setUploadLoading(false)
+    }
+  }
+
+  const handleDeleteImages = async () => {
+    if (selectedImages.length === 0) {
+      toast.error('Selecione imagens para excluir')
+      return
+    }
+
+    try {
+      setUploadLoading(true)
+      const storage = getStorage()
+      
+      // Excluir do Storage e Firestore
+      for (const imageId of selectedImages) {
+        const image = carouselImages.find(img => img.id === imageId)
+        if (image) {
+          // Excluir do Storage
+          const storageRef = ref(storage, image.url)
+          await deleteObject(storageRef)
+          
+          // Excluir do Firestore
+          await deleteDoc(doc(db, 'carousel', imageId))
+        }
+      }
+      
+      toast.success('Imagens excluídas com sucesso')
+      setSelectedImages([])
+      setIsDeleteAlertOpen(false)
+    } catch (error) {
+      console.error('Erro ao excluir imagens:', error)
+      toast.error('Erro ao excluir imagens')
+    } finally {
+      setUploadLoading(false)
+    }
+  }
+
+  const resetUploadForm = () => {
+    setNewImageTitle('')
+    setNewImageDescription('')
+    setNewImageFile(null)
+    setNewImageOrder(carouselImages.length)
+  }
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-muted/50">
       <div className="container mx-auto px-4 py-8">
@@ -529,9 +691,11 @@ export default function Dashboard() {
         </div>
 
         <Tabs defaultValue="presentations" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="presentations">Apresentações</TabsTrigger>
             <TabsTrigger value="enlistments">Alistamentos</TabsTrigger>
+            <TabsTrigger value="gallery">Galeria</TabsTrigger>
+            <TabsTrigger value="pilots">Pilotos</TabsTrigger>
           </TabsList>
           
           <TabsContent value="presentations">
@@ -557,7 +721,7 @@ export default function Dashboard() {
                         </CardDescription>
                       </div>
                       {getStatusBadge(presentation.status)}
-                    </CardHeader> q
+                    </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -703,6 +867,130 @@ export default function Dashboard() {
                   </Card>
                 ))
               )}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="gallery">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="select-all" 
+                  checked={selectedImages.length === carouselImages.length}
+                  onCheckedChange={handleSelectAll}
+                />
+                <Label htmlFor="select-all">Selecionar todas</Label>
+              </div>
+              <div className="flex space-x-2">
+                <Button onClick={() => setIsUploadDialogOpen(true)}>
+                  Adicionar Imagem
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setIsDeleteAlertOpen(true)}
+                  disabled={selectedImages.length === 0}
+                >
+                  Excluir Selecionadas
+                </Button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {carouselImages.map((image) => (
+                <Card key={image.id} className="relative">
+                  <div className="absolute top-2 left-2">
+                    <Checkbox 
+                      checked={selectedImages.includes(image.id)}
+                      onCheckedChange={() => handleImageSelect(image.id)}
+                    />
+                  </div>
+                  <CardContent className="p-4">
+                    <img 
+                      src={image.url} 
+                      alt={image.title}
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <div className="mt-2">
+                      <h3 className="font-semibold">{image.title}</h3>
+                      <p className="text-sm text-muted-foreground">{image.description}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ordem: {image.order}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="pilots">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="select-all-pilots" 
+                  checked={selectedPilots.length === pilots.length}
+                  onCheckedChange={() => {
+                    setSelectedPilots(prev => 
+                      prev.length === pilots.length 
+                        ? [] 
+                        : pilots.map(pilot => pilot.id)
+                    )
+                  }}
+                />
+                <Label htmlFor="select-all-pilots">Selecionar todos</Label>
+              </div>
+              <div className="flex space-x-2">
+                <Button onClick={() => {
+                  setNewPilotName('')
+                  setNewPilotPosition('')
+                  setNewPilotFile(null)
+                  setNewPilotOrder(pilots.length)
+                  setIsPilotDialogOpen(true)
+                }}>
+                  Adicionar Piloto
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setIsPilotDeleteAlertOpen(true)}
+                  disabled={selectedPilots.length === 0}
+                >
+                  Excluir Selecionados
+                </Button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pilots.map((pilot) => (
+                <Card key={pilot.id} className="relative">
+                  <div className="absolute top-2 left-2">
+                    <Checkbox 
+                      checked={selectedPilots.includes(pilot.id)}
+                      onCheckedChange={() => {
+                        setSelectedPilots(prev => 
+                          prev.includes(pilot.id) 
+                            ? prev.filter(id => id !== pilot.id)
+                            : [...prev, pilot.id]
+                        )
+                      }}
+                    />
+                  </div>
+                  <CardContent className="p-4">
+                    <div className="w-24 h-24 mx-auto mb-4 bg-gray-700 rounded-full overflow-hidden">
+                      <img 
+                        src={pilot.photoURL} 
+                        alt={pilot.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="font-semibold">{pilot.name}</h3>
+                      <p className="text-sm text-muted-foreground">{pilot.position}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ordem: {pilot.order}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </TabsContent>
         </Tabs>
@@ -1073,6 +1361,258 @@ export default function Dashboard() {
                 className="bg-red-600 hover:bg-red-700"
               >
                 {enlistmentLoading ? 'Excluindo...' : 'Excluir'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog de Upload */}
+        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar Imagem ao Carrossel</DialogTitle>
+              <DialogDescription>
+                Faça upload de uma nova imagem para o carrossel da página inicial
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Título</Label>
+                <Input
+                  id="title"
+                  value={newImageTitle}
+                  onChange={(e) => setNewImageTitle(e.target.value)}
+                  placeholder="Digite o título da imagem"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrição</Label>
+                <Textarea
+                  id="description"
+                  value={newImageDescription}
+                  onChange={(e) => setNewImageDescription(e.target.value)}
+                  placeholder="Digite a descrição da imagem"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="order">Ordem</Label>
+                <Input
+                  id="order"
+                  type="number"
+                  value={newImageOrder}
+                  onChange={(e) => setNewImageOrder(Number(e.target.value))}
+                  placeholder="Digite a ordem da imagem"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="image">Imagem</Label>
+                <Input
+                  id="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setNewImageFile(e.target.files?.[0] || null)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsUploadDialogOpen(false)}
+                disabled={uploadLoading}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleUploadImage}
+                disabled={uploadLoading}
+              >
+                {uploadLoading ? 'Enviando...' : 'Enviar'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Alert Dialog de Exclusão */}
+        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. As imagens selecionadas serão permanentemente removidas.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={uploadLoading}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteImages}
+                disabled={uploadLoading}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {uploadLoading ? 'Excluindo...' : 'Excluir'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Dialog para adicionar piloto */}
+        <Dialog open={isPilotDialogOpen} onOpenChange={setIsPilotDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar Novo Piloto</DialogTitle>
+              <DialogDescription>
+                Preencha os dados do novo piloto
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="pilot-name">Nome</Label>
+                <Input
+                  id="pilot-name"
+                  value={newPilotName}
+                  onChange={(e) => setNewPilotName(e.target.value)}
+                  placeholder="Digite o nome do piloto"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pilot-position">Posição</Label>
+                <Select
+                  value={newPilotPosition}
+                  onValueChange={setNewPilotPosition}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione a posição" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 - Líder</SelectItem>
+                    <SelectItem value="2">2 - Ala Direito</SelectItem>
+                    <SelectItem value="3">3 - Ala Esquerdo</SelectItem>
+                    <SelectItem value="4">4 - Ferrolho</SelectItem>
+                    <SelectItem value="5">5 - Ala Esquerdo Externo</SelectItem>
+                    <SelectItem value="6">6 - Ala Direito Externo</SelectItem>
+                    <SelectItem value="7">7 - Isolado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pilot-order">Ordem</Label>
+                <Input
+                  id="pilot-order"
+                  type="number"
+                  value={newPilotOrder}
+                  onChange={(e) => setNewPilotOrder(Number(e.target.value))}
+                  placeholder="Digite a ordem do piloto"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pilot-photo">Foto</Label>
+                <Input
+                  id="pilot-photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setNewPilotFile(e.target.files?.[0] || null)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsPilotDialogOpen(false)}
+                disabled={pilotLoading}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!newPilotFile) {
+                    toast.error('Selecione uma foto para o piloto')
+                    return
+                  }
+
+                  try {
+                    setPilotLoading(true)
+                    const storage = getStorage()
+                    const storageRef = ref(storage, `pilots/${Date.now()}_${newPilotFile.name}`)
+                    
+                    // Upload da foto
+                    await uploadBytes(storageRef, newPilotFile)
+                    const photoURL = await getDownloadURL(storageRef)
+                    
+                    // Salvar no Firestore
+                    const pilotData = {
+                      name: newPilotName,
+                      position: newPilotPosition,
+                      photoURL,
+                      order: newPilotOrder,
+                      createdAt: new Date()
+                    }
+                    
+                    await addDoc(collection(db, 'pilots'), pilotData)
+                    
+                    toast.success('Piloto adicionado com sucesso')
+                    setIsPilotDialogOpen(false)
+                    setNewPilotName('')
+                    setNewPilotPosition('')
+                    setNewPilotFile(null)
+                    setNewPilotOrder(pilots.length)
+                  } catch (error) {
+                    console.error('Erro ao adicionar piloto:', error)
+                    toast.error('Erro ao adicionar piloto')
+                  } finally {
+                    setPilotLoading(false)
+                  }
+                }}
+                disabled={pilotLoading}
+              >
+                {pilotLoading ? 'Adicionando...' : 'Adicionar'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Alert Dialog para confirmar exclusão de pilotos */}
+        <AlertDialog open={isPilotDeleteAlertOpen} onOpenChange={setIsPilotDeleteAlertOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. Os pilotos selecionados serão permanentemente removidos.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pilotLoading}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  try {
+                    setPilotLoading(true)
+                    const storage = getStorage()
+                    
+                    // Excluir do Storage e Firestore
+                    for (const pilotId of selectedPilots) {
+                      const pilot = pilots.find(p => p.id === pilotId)
+                      if (pilot) {
+                        // Excluir foto do Storage
+                        const storageRef = ref(storage, pilot.photoURL)
+                        await deleteObject(storageRef)
+                        
+                        // Excluir do Firestore
+                        await deleteDoc(doc(db, 'pilots', pilotId))
+                      }
+                    }
+                    
+                    toast.success('Pilotos excluídos com sucesso')
+                    setSelectedPilots([])
+                    setIsPilotDeleteAlertOpen(false)
+                  } catch (error) {
+                    console.error('Erro ao excluir pilotos:', error)
+                    toast.error('Erro ao excluir pilotos')
+                  } finally {
+                    setPilotLoading(false)
+                  }
+                }}
+                disabled={pilotLoading}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {pilotLoading ? 'Excluindo...' : 'Excluir'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

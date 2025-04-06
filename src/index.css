@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-
+@font-face {
+  font-family: 'Pricedown';
+  src: url('../fonts/Pricedown Bl.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+} 
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -113,8 +119,13 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    font-family: 'Pricedown', sans-serif;
   }
   body {
     @apply bg-background text-foreground;
   }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Pricedown', sans-serif;
+  }
 }
+    

@@ -80,7 +80,7 @@ export default function Contact() {
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-b from-background to-muted py-24">
         {/* Padrão de fundo */}
-        <div className="absolute inset-0 bg-[url('https://th.bing.com/th/id/OIP.5aqbB7vnaUaePynkIZmnZwHaFC?rs=1&pid=ImgDetMain')] opacity-10"></div>
+        <div className="absolute inset-0 bg-[url('https://media.discordapp.net/attachments/1357412927551836370/1357855842069774436/image.png?ex=67f2620c&is=67f1108c&hm=f95ec559f4d33437e037df5348d85a0263a609ad2544f43531d6217646164300&=&format=webp&quality=lossless&width=974&height=789')] opacity-10"></div>
         
         {/* Elementos decorativos */}
         <div className="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl"></div>

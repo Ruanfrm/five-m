@@ -3,14 +3,24 @@ import { Card, CardContent } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 import { 
   PlaneIcon, 
-  UsersIcon, 
+  MapPinIcon,
   ArrowRightIcon,
-  ShieldIcon,
-  AwardIcon,
+  CalendarIcon,
   ClockIcon,
-  MapPinIcon
+  UsersIcon,
+  CheckIcon
 } from 'lucide-react'
-import { EnlistmentForm } from '@/components/EnlistmentForm'
+import { useState } from 'react'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Calendar } from '@/components/ui/calendar'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
+import { db } from '@/lib/firebase'
+import { collection, addDoc } from 'firebase/firestore'
+import { toast } from 'sonner'
+import { sendDiscordNotification } from '@/lib/discord'
 
 // Componentes de animação
 const fadeIn = {
@@ -32,7 +42,76 @@ const staggerContainer = {
   }
 }
 
-export default function JoinUs() {
+const presentationSchema = z.object({
+  city: z.string().min(1, 'Cidade é obrigatória'),
+  email: z.string().email('Email inválido'),
+  time: z.string().min(1, 'Horário é obrigatório'),
+  description: z.string().min(10, 'Descrição deve ter no mínimo 10 caracteres'),
+  discordId: z.string().min(1, 'ID do Discord é obrigatório')
+})
+
+type PresentationForm = z.infer<typeof presentationSchema>
+
+export default function Demonstration() {
+  const [date, setDate] = useState<Date>()
+  const [loading, setLoading] = useState(false)
+
+  const form = useForm<PresentationForm>({
+    resolver: zodResolver(presentationSchema),
+    defaultValues: {
+      city: '',
+      email: '',
+      time: '',
+      description: '',
+      discordId: ''
+    }
+  })
+
+  const onSubmit = async (data: PresentationForm) => {
+    if (!date) {
+      toast.error('Selecione uma data para a apresentação')
+      return
+    }
+
+    try {
+      setLoading(true)
+      
+      const presentationData = {
+        city: data.city,
+        email: data.email,
+        date: date,
+        time: data.time,
+        discordId: data.discordId,
+        description: data.description,
+        status: 'pending',
+        createdAt: new Date()
+      }
+      
+      // Salvar no Firestore
+      const docRef = await addDoc(collection(db, 'presentations'), presentationData)
+      
+      // Enviar notificação para o Discord
+      try {
+        await sendDiscordNotification({
+          ...presentationData,
+          id: docRef.id,
+          title: '🆕 Nova Solicitação de Demonstração'
+        })
+      } catch (discordError) {
+        console.error("Erro ao enviar notificação para o Discord:", discordError)
+      }
+      
+      toast.success('Solicitação enviada! Entraremos em contato em breve.')
+      form.reset()
+      setDate(undefined)
+    } catch (error) {
+      console.error("Erro ao enviar:", error)
+      toast.error('Erro ao enviar solicitação. Tente novamente mais tarde.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -52,7 +131,7 @@ export default function JoinUs() {
             className="inline-flex items-center justify-center gap-2 mb-6 px-4 py-2 bg-primary/10 rounded-full"
           >
             <PlaneIcon className="h-5 w-5 text-primary" />
-            <span className="text-primary font-medium">Junte-se à Nossa Equipe</span>
+            <span className="text-primary font-medium">Agende uma Demonstração</span>
           </motion.div>
           
           <motion.h1 
@@ -61,7 +140,7 @@ export default function JoinUs() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-5xl md:text-6xl font-bold tracking-tight"
           >
-            Seja um Piloto EDA
+            Solicite uma Apresentação
           </motion.h1>
           
           <motion.p 
@@ -70,17 +149,16 @@ export default function JoinUs() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-xl text-muted-foreground max-w-2xl mx-auto"
           >
-            Estamos sempre em busca de pilotos talentosos e dedicados para se juntarem à nossa equipe.
-            Preencha o formulário abaixo para iniciar seu processo de alistamento.
+            Traga a emoção da Esquadrilha da Fumaça para sua cidade. Preencha o formulário abaixo para solicitar uma demonstração.
           </motion.p>
         </div>
       </section>
 
-      {/* Requisitos e Benefícios */}
+      {/* Informações e Requisitos */}
       <section className="py-24 bg-background">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
-            {/* Requisitos */}
+            {/* Informações */}
             <motion.div
               initial="hidden"
               whileInView="visible"
@@ -89,56 +167,26 @@ export default function JoinUs() {
               className="space-y-8"
             >
               <motion.div variants={fadeIn}>
-                <h2 className="text-3xl font-bold mb-8">Requisitos para Alistamento</h2>
+                <h2 className="text-3xl font-bold mb-8">Informações Importantes</h2>
                 
                 <div className="space-y-6">
                   <Card className="border-2 hover:border-primary/50 transition-all duration-300">
                     <CardContent className="p-6">
                       <div className="flex items-start gap-4">
                         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <ShieldIcon className="h-6 w-6 text-primary" />
+                          <CalendarIcon className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <h3 className="font-medium mb-2">Idade Mínima</h3>
+                          <h3 className="font-medium mb-2">Agendamento Antecipado</h3>
                           <p className="text-muted-foreground">
-                            Ter pelo menos 16 anos de idade.
+                            Solicite com pelo menos 30 dias de antecedência.
                           </p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card className="border-2 hover:border-primary/50 transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <ClockIcon className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium mb-2">Disponibilidade</h3>
-                          <p className="text-muted-foreground">
-                            Ter disponibilidade para participar de treinamentos e apresentações.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-2 hover:border-primary/50 transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <MapPinIcon className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium mb-2">Localização</h3>
-                          <p className="text-muted-foreground">
-                            Residir no Brasil e ter acesso a servidores FiveM.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                
 
                   <Card className="border-2 hover:border-primary/50 transition-all duration-300">
                     <CardContent className="p-6">
@@ -147,9 +195,9 @@ export default function JoinUs() {
                           <UsersIcon className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <h3 className="font-medium mb-2">Trabalho em Equipe</h3>
+                          <h3 className="font-medium mb-2">Público Mínimo</h3>
                           <p className="text-muted-foreground">
-                            Ter espírito de equipe e disposição para colaborar com outros pilotos.
+                            Recomendamos um público mínimo de 50 pessoas.
                           </p>
                         </div>
                       </div>
@@ -159,7 +207,7 @@ export default function JoinUs() {
               </motion.div>
             </motion.div>
 
-            {/* Benefícios */}
+            {/* Formulário */}
             <motion.div
               initial="hidden"
               whileInView="visible"
@@ -168,80 +216,76 @@ export default function JoinUs() {
               className="space-y-8"
             >
               <motion.div variants={fadeIn}>
-                <h2 className="text-3xl font-bold mb-8">Benefícios de Ser um Piloto EDA</h2>
+                <h2 className="text-3xl font-bold mb-8">Solicite Agora</h2>
                 
-                <div className="space-y-6">
-                  <Card className="border-2 hover:border-primary/50 transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <AwardIcon className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium mb-2">Treinamento Especializado</h3>
-                          <p className="text-muted-foreground">
-                            Acesso a treinamentos exclusivos para melhorar suas habilidades de pilotagem.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Cidade</label>
+                    <Input
+                      {...form.register('city')}
+                      placeholder="Nome da cidade"
+                    />
+                  </div>
 
-                  <Card className="border-2 hover:border-primary/50 transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <UsersIcon className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium mb-2">Comunidade Ativa</h3>
-                          <p className="text-muted-foreground">
-                            Fazer parte de uma comunidade de pilotos apaixonados e experientes.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Email</label>
+                    <Input
+                      {...form.register('email')}
+                      type="email"
+                      placeholder="seu@email.com"
+                    />
+                  </div>
 
-                  <Card className="border-2 hover:border-primary/50 transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <PlaneIcon className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium mb-2">Experiência Prática</h3>
-                          <p className="text-muted-foreground">
-                            Oportunidade de participar de apresentações e eventos em servidores FiveM.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Data</label>
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={setDate}
+                      className="border rounded-md p-3"
+                    />
+                  </div>
 
-                  <Card className="border-2 hover:border-primary/50 transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <ShieldIcon className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium mb-2">Reconhecimento</h3>
-                          <p className="text-muted-foreground">
-                            Ser reconhecido como parte de uma das equipes de demonstração aérea mais respeitadas do Brasil.
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Horário</label>
+                    <Input
+                      {...form.register('time')}
+                      type="time"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">ID do Discord</label>
+                    <Input
+                      {...form.register('discordId')}
+                      placeholder="Seu ID do Discord"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Descrição do Evento</label>
+                    <Textarea
+                      {...form.register('description')}
+                      placeholder="Descreva o evento e suas expectativas"
+                      rows={4}
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={loading}
+                  >
+                    {loading ? 'Enviando...' : 'Enviar Solicitação'}
+                  </Button>
+                </form>
               </motion.div>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Processo de Alistamento */}
+      {/* Processo de Solicitação */}
       <section className="py-24 bg-gradient-to-r from-primary/5 to-blue-500/5">
         <div className="container mx-auto px-4">
           <motion.div
@@ -251,14 +295,14 @@ export default function JoinUs() {
             transition={{ duration: 0.6 }}
             className="max-w-4xl mx-auto text-center mb-16"
           >
-            <h2 className="text-3xl font-bold mb-6">Processo de Alistamento</h2>
+            <h2 className="text-3xl font-bold mb-6">Como Funciona</h2>
             <p className="text-xl text-muted-foreground">
-              Nosso processo de alistamento é simples e transparente. Siga os passos abaixo para se tornar um piloto EDA.
+              Entenda o processo de solicitação e aprovação de uma demonstração.
             </p>
           </motion.div>
 
           <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-4 gap-8">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -270,9 +314,9 @@ export default function JoinUs() {
                   1
                 </div>
                 <Card className="border-2 pt-16 pb-8 px-6 text-center">
-                  <h3 className="text-xl font-bold mb-4">Preencha o Formulário</h3>
+                  <h3 className="text-xl font-bold mb-4">Solicitação</h3>
                   <p className="text-muted-foreground">
-                    Preencha o formulário de alistamento com suas informações pessoais e experiência.
+                    Preencha o formulário com todas as informações necessárias.
                   </p>
                 </Card>
               </motion.div>
@@ -288,9 +332,9 @@ export default function JoinUs() {
                   2
                 </div>
                 <Card className="border-2 pt-16 pb-8 px-6 text-center">
-                  <h3 className="text-xl font-bold mb-4">Entrevista</h3>
+                  <h3 className="text-xl font-bold mb-4">Análise</h3>
                   <p className="text-muted-foreground">
-                    Após análise do formulário, você será convocado para uma entrevista com nossa equipe.
+                    Nossa equipe avaliará a viabilidade da demonstração.
                   </p>
                 </Card>
               </motion.div>
@@ -306,42 +350,32 @@ export default function JoinUs() {
                   3
                 </div>
                 <Card className="border-2 pt-16 pb-8 px-6 text-center">
-                  <h3 className="text-xl font-bold mb-4">Treinamento</h3>
+                  <h3 className="text-xl font-bold mb-4">Confirmação</h3>
                   <p className="text-muted-foreground">
-                    Se aprovado, você iniciará o treinamento para se tornar um piloto EDA oficial.
+                    Você receberá a confirmação com todos os detalhes.
+                  </p>
+                </Card>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="relative"
+              >
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xl z-10">
+                  4
+                </div>
+                <Card className="border-2 pt-16 pb-8 px-6 text-center">
+                  <h3 className="text-xl font-bold mb-4">Demonstração</h3>
+                  <p className="text-muted-foreground">
+                    Realização da apresentação no dia e horário marcados.
                   </p>
                 </Card>
               </motion.div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Formulário de Alistamento */}
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.6 }}
-            className="max-w-4xl mx-auto text-center mb-16"
-          >
-            <h2 className="text-3xl font-bold mb-6">Formulário de Alistamento</h2>
-            <p className="text-xl text-muted-foreground">
-              Preencha o formulário abaixo para iniciar seu processo de alistamento como piloto EDA.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="max-w-4xl mx-auto"
-          >
-            <EnlistmentForm />
-          </motion.div>
         </div>
       </section>
 
@@ -358,7 +392,7 @@ export default function JoinUs() {
             <h2 className="text-3xl font-bold mb-6">Ainda tem dúvidas?</h2>
             <p className="text-xl text-muted-foreground mb-8">
               Entre em nosso servidor do Discord para conversar diretamente com nossa equipe 
-              e tirar suas dúvidas sobre o processo de alistamento.
+              e tirar suas dúvidas sobre o processo de solicitação.
             </p>
             <Button size="lg" asChild className="group">
               <a 

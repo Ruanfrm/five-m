@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Calendar } from '@/components/ui/calendar'
 import { useState, useEffect, useRef } from 'react'
 import { ptBR } from 'date-fns/locale'
@@ -15,26 +14,21 @@ import { toast } from 'sonner'
 import { sendDiscordNotification } from '@/lib/discord'
 import { format, isBefore, isToday } from 'date-fns'
 import { AiOutlineDiscord } from "react-icons/ai";
+import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from '@/components/ui/carousel'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { motion } from 'framer-motion'
 import { 
   PlaneIcon, 
-  CalendarIcon, 
   TrophyIcon, 
   StarIcon, 
   ClockIcon, 
-  MapPinIcon, 
-  MailIcon, 
-  MessageSquareIcon,
-  ArrowRightIcon,
-  CheckCircleIcon,
+  
   ChevronDownIcon
 } from 'lucide-react'
 
@@ -49,6 +43,24 @@ interface Presentation {
   createdAt: Date;
 }
 
+interface CarouselImage {
+  id: string
+  url: string
+  title: string
+  description: string
+  order: number
+  createdAt: Date
+}
+
+interface Pilot {
+  id: string
+  name: string
+  position: string
+  photoURL: string
+  order: number
+  createdAt: Date
+}
+
 const presentationSchema = z.object({
   city: z.string().min(1, 'Cidade é obrigatória'),
   email: z.string().email('Email inválido'),
@@ -59,25 +71,6 @@ const presentationSchema = z.object({
 
 type PresentationForm = z.infer<typeof presentationSchema>
 
-// Componentes de animação
-const fadeIn = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: { duration: 0.6 }
-  }
-}
-
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-}
 
 export default function Home() {
   const [date, setDate] = useState<Date>()
@@ -86,6 +79,10 @@ export default function Home() {
   const [upcomingPresentations, setUpcomingPresentations] = useState<Presentation[]>([])
   const [pastPresentations, setPastPresentations] = useState<Presentation[]>([])
   const [loadingPresentations, setLoadingPresentations] = useState(true)
+  const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([])
+  const [loadingCarousel, setLoadingCarousel] = useState(true)
+  const [pilots, setPilots] = useState<Pilot[]>([])
+  const [loadingPilots, setLoadingPilots] = useState(true)
 
   const form = useForm<PresentationForm>({
     resolver: zodResolver(presentationSchema),
@@ -166,8 +163,43 @@ export default function Home() {
     
     fetchPresentations()
     
+    // Carregar imagens do carrossel
+    const carouselQuery = query(collection(db, 'carousel'), orderBy('order', 'asc'))
+    const unsubscribeCarousel = onSnapshot(carouselQuery, (snapshot) => {
+      const imagesData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt.toDate(),
+      })) as CarouselImage[]
+      setCarouselImages(imagesData)
+      setLoadingCarousel(false)
+    }, (error) => {
+      console.error('Erro ao carregar imagens do carrossel:', error)
+      setLoadingCarousel(false)
+    })
+
+    // Carregar pilotos
+    const pilotsQuery = query(collection(db, 'pilots'), orderBy('order', 'asc'))
+    const unsubscribePilots = onSnapshot(pilotsQuery, (snapshot) => {
+      const pilotsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt.toDate(),
+      })) as Pilot[]
+      setPilots(pilotsData)
+      
+      setLoadingPilots(false)
+    }, (error) => {
+      console.error('Erro ao carregar pilotos:', error)
+      setLoadingPilots(false)
+    })
+
     // Limpar o observador quando o componente for desmontado
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      unsubscribeCarousel()
+      unsubscribePilots()
+    }
   }, [])
 
   const onSubmit = async (data: PresentationForm) => {
@@ -265,25 +297,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0A192F] text-white">
-      {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0A192F]/80 backdrop-blur-sm border-b border-white/10">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <a href="#" className="text-xl font-bold">EDA</a>
-              <div className="hidden md:flex space-x-6">
-                <button onClick={() => scrollToSection(heroRef)} className="hover:text-blue-400 transition-colors">Início</button>
-                <button onClick={() => scrollToSection(aboutRef)} className="hover:text-blue-400 transition-colors">Sobre</button>
-                <button onClick={() => scrollToSection(presentationsRef)} className="hover:text-blue-400 transition-colors">Apresentações</button>
-                <button onClick={() => scrollToSection(contactRef)} className="hover:text-blue-400 transition-colors">Contato</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
+      
       {/* Hero Section */}
-      <section ref={heroRef} className="min-h-screen flex items-center justify-center relative overflow-hidden">
+      <section id="hero" ref={heroRef} className="min-h-screen flex items-center justify-center relative overflow-hidden">
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: "url('https://media.discordapp.net/attachments/1357412927551836370/1357855842069774436/image.png?ex=67f2620c&is=67f1108c&hm=f95ec559f4d33437e037df5348d85a0263a609ad2544f43531d6217646164300&=&format=webp&quality=lossless&width=974&height=789')",
+            opacity: 0.2
+          }}
+        ></div>
         <div className="absolute inset-0 bg-gradient-to-b from-[#0A192F] to-[#112240] opacity-50"></div>
         <div className="container mx-auto px-4 relative z-10">
           <motion.div 
@@ -292,11 +315,18 @@ export default function Home() {
             transition={{ duration: 0.8 }}
             className="text-center"
           >
-            <h1 className="text-5xl md:text-7xl font-bold mb-6">Esquadrilha da Ajuda</h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-8">Sua jornada na aviação começa aqui</p>
+            <h1 
+              className="mb-10 text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-b from-white via-blue-300 to-[#0A192F] bg-clip-text text-transparent animate-gradient-y bg-[length:100%_400%]"
+             
+            >
+              Esquadrilha da Fumaça
+            </h1>
+            <p className="text-xl md:text-2xl text-gray-300 mb-8 animate-fade-in">
+              Somos uma equipe de pilotos apaixonados por aviação, trazendo emoção e espetáculo aos céus do Brasil.
+            </p>
             <Button 
               onClick={() => scrollToSection(aboutRef)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg animate-bounce-slow"
             >
               Conheça-nos
               <ChevronDownIcon className="ml-2 h-5 w-5" />
@@ -304,9 +334,53 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+      {/* Carousel Section */}
+      <section className="py-10 bg-[#0A192F]" id='carousel'>
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="relative w-full max-w-5xl mx-auto"
+          >
+            {loadingCarousel ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
+            ) : carouselImages.length > 0 ? (
+              <Carousel className="w-full" opts={{ loop: true }}>
+                <CarouselContent>
+                  {carouselImages.map((image) => (
+                    <CarouselItem key={image.id}>
+                      <div className="relative">
+                        <img
+                          src={image.url}
+                          alt={image.title}
+                          className="w-full h-full object-cover aspect-video rounded-lg"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-lg">
+                          <h3 className="text-xl font-bold text-white">{image.title}</h3>
+                          <p className="text-sm text-gray-200">{image.description}</p>
+                        </div>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-400">Nenhuma imagem disponível no carrossel.</p>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </section>
 
       {/* About Section */}
-      <section ref={aboutRef} className="py-20 bg-[#112240]">
+      <section id="about" ref={aboutRef} className="py-20 bg-[#112240]">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0 }}
@@ -322,34 +396,149 @@ export default function Home() {
                 Nossa missão é proporcionar uma experiência única no mundo da aviação, combinando conhecimento
                 técnico com práticas realistas.
               </p>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="flex items-center space-x-3">
-                  <TrophyIcon className="h-6 w-6 text-blue-400" />
-                  <span>Experiência</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <StarIcon className="h-6 w-6 text-blue-400" />
-                  <span>Qualidade</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <ClockIcon className="h-6 w-6 text-blue-400" />
-                  <span>Dedicação</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <PlaneIcon className="h-6 w-6 text-blue-400" />
-                  <span>Paixão</span>
-                </div>
-              </div>
+              
             </div>
             <div className="relative">
-              <div className="aspect-video bg-[#0A192F] rounded-lg shadow-xl"></div>
+              <img
+                src="https://cdn.discordapp.com/attachments/1357412927551836370/1358222737423990954/1.png?ex=67f30eff&is=67f1bd7f&hm=de556c25c927e14f81b4983e28b4d2512c570668bcad389e6d599531059c3e24&"
+                alt="Logo da Esquadrilha da Fumaça"
+                className="w-full h-auto rounded-lg shadow-lg"
+              />
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Pilots Section */}
+      <section id="pilots" className="py-20 bg-[#0A192F]">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-4xl font-bold mb-12 text-center">Nossos Pilotos</h2>
+            
+            <div className="relative w-full max-w-4xl mx-auto">
+              {/* Formação dos A-29 */}
+              <div className="relative h-[500px] ">
+                {/* Líder */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-0 text-center">
+                  <p className="text-sm font-semibold mb-1">#1 - Líder</p>
+                  <p className="text-sm text-gray-400">
+                    {pilots.find(p => p.position === "1")?.name || ""}
+                  </p>
+                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
+                 
+                </div>
+
+                {/* Elementos 2 e 3 */}
+                <div className="absolute right-[35%] top-[25%] text-center">
+                  <p className="text-sm font-semibold mb-1">#2 - Ala Direito</p>
+                  <p className="text-sm text-gray-400">
+                    {pilots.find(p => p.position === "2")?.name || ""}
+                  </p>
+                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
+                  
+                </div>
+                <div className="absolute left-[35%] top-[25%] text-center">
+                  <p className="text-sm font-semibold mb-1">#3 - Ala Esquerdo</p>
+                  <p className="text-sm text-gray-400">
+                    {pilots.find(p => p.position === "3")?.name || ""}
+                  </p>
+                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
+                 
+                </div>
+
+                {/* Elementos 4, 5 e 6 */}
+                <div className="absolute left-[20%] top-[50%] text-center">
+                  <p className="text-sm font-semibold mb-1">#5 - Ala Esquerdo Externo</p>
+                  <p className="text-sm text-gray-400">
+                    {pilots.find(p => p.position === "5")?.name || ""}
+                  </p>
+                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
+                  
+                </div>
+                <div className="absolute left-1/2 -translate-x-1/2 top-[50%] text-center">
+                  <p className="text-sm font-semibold mb-1">#4 - Ferrolho</p>
+                  <p className="text-sm text-gray-400">
+                    {pilots.find(p => p.position === "4")?.name || ""}
+                  </p>
+                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
+                  
+                </div>
+                <div className="absolute right-[20%] top-[50%] text-center">
+                  <p className="text-sm font-semibold mb-1">#6 - Ala Direito Externo</p>
+                  <p className="text-sm text-gray-400">
+                    {pilots.find(p => p.position === "6")?.name || ""}
+                  </p>
+                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
+                  
+                </div>
+
+                {/* Elemento 7 (base) */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-[75%] text-center">
+                  <p className="text-sm font-semibold mb-1">#7 - Isolado</p>
+                  <p className="text-sm text-gray-400">
+                    {pilots.find(p => p.position === "7")?.name || ""}
+                  </p>
+                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
+                  
+                </div>
+              </div>
+
+              {/* Grid de pilotos */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-24">
+                {loadingPilots ? (
+                  // Esqueleto de carregamento
+                  Array.from({ length: 7 }).map((_, index) => (
+                    <div key={index} className="bg-[#112240] rounded-lg p-4 text-center animate-pulse">
+                      <div className="w-24 h-24 mx-auto mb-4 bg-gray-700 rounded-full"></div>
+                      <div className="h-4 bg-gray-700 rounded w-3/4 mx-auto mb-2"></div>
+                      <div className="h-3 bg-gray-700 rounded w-1/2 mx-auto"></div>
+                    </div>
+                  ))
+                ) : pilots.length > 0 ? (
+                  pilots.sort((a, b) => Number(a.position) - Number(b.position)).map((pilot) => (
+                    <div key={pilot.id} className="bg-[#112240] rounded-lg p-4 text-center">
+                      <div className="w-24 h-24 mx-auto mb-4 bg-gray-700 rounded-full overflow-hidden">
+                        <img 
+                          src={pilot.photoURL} 
+                          alt={pilot.name} 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <h3 className="text-lg font-semibold">{pilot.name}</h3>
+                      <p className="text-sm text-gray-400">
+                        {(() => {
+                          switch (pilot.position) {
+                            case "1": return "1 - Líder"
+                            case "2": return "2 - Ala Direito"
+                            case "3": return "3 - Ala Esquerdo"
+                            case "4": return "4 - Ferrolho"
+                            case "5": return "5 - Ala Esquerdo Externo"
+                            case "6": return "6 - Ala Direito Externo"
+                            case "7": return "7 - Isolado"
+                            default: return pilot.position
+                          }
+                        })()}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-12 text-gray-400">
+                    Nenhum piloto cadastrado.
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         </div>
       </section>
 
       {/* Presentations Section */}
-      <section ref={presentationsRef} className="py-20 bg-[#0A192F]">
+      <section id="presentations" ref={presentationsRef} className="py-20 bg-[#0A192F]">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0 }}
@@ -373,7 +562,6 @@ export default function Home() {
                         <ClockIcon className="h-5 w-5 text-blue-400" />
                         <span>{presentation.time}</span>
                       </div>
-                      <p className="text-gray-300">{presentation.description}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -384,7 +572,7 @@ export default function Home() {
       </section>
 
       {/* Contact Section */}
-      <section ref={contactRef} className="py-20 bg-[#112240]">
+      <section id="contact" ref={contactRef} className="py-20 bg-[#112240]">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0 }}
@@ -393,7 +581,7 @@ export default function Home() {
             viewport={{ once: true }}
             className="max-w-2xl mx-auto text-center"
           >
-            <h2 className="text-4xl font-bold mb-6">Entre em Contato</h2>
+            <h2 className="text-4xl font-bold mb-6">Solicite uma Demonstração</h2>
             <p className="text-gray-300 mb-8">
               Estamos aqui para ajudar. Entre em contato conosco através do Discord ou solicite uma apresentação.
             </p>

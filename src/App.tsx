@@ -12,7 +12,7 @@ import { retryPendingNotifications } from '@/lib/discord'
 import About from '@/pages/About'
 import Contact from '@/pages/Contact'
 import JoinUs from './pages/JoinUs'
-
+import Demonstration from './pages/Demonstration'
 function AppContent() {
   useEffect(() => {
     // Verificar notificações pendentes ao iniciar o app
@@ -53,7 +53,7 @@ function AppContent() {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/alistamento" element={<JoinUs />} />
-
+          <Route path="/demonstracao" element={<Demonstration />} />
         </Routes>
       </main>
       <Footer />

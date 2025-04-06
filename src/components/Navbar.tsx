@@ -4,12 +4,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ModeToggle } from './mode-toggle'
-
+import { useNavigate } from 'react-router-dom'
 export default function Navbar() {
   const { user, logout } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-
+  const navigate = useNavigate()
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
   }
@@ -18,49 +17,74 @@ export default function Navbar() {
     setIsMenuOpen(false)
   }
 
+  // Função para rolagem suave
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' })
+    }
+    closeMenu()
+  }
+
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
+    <nav className="sticky top-0 z-50 w-full border-b bg-[#112240] ">
+      <div className="container mx-auto px-8 max-w-[1400px]">
+        <div className="flex h-20 items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Link to="/" className="flex items-center space-x-2" onClick={closeMenu}>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-blue-700 bg-clip-text text-transparent">
-                EDA FIVEM
-              </span>
+            <Link to="/" className="flex items-center space-x-2">
+              <img 
+                src="https://cdn.discordapp.com/attachments/1357412927551836370/1358222737423990954/1.png?ex=67f30eff&is=67f1bd7f&hm=de556c25c927e14f81b4983e28b4d2512c570668bcad389e6d599531059c3e24&" 
+                alt="Logo da Esquadrilha da Fumaça" 
+                className="h-8 sm:h-10 md:h-12 lg:h-14 w-auto"
+              />
             </Link>
           </div>
 
           {/* Menu para desktop */}
           <div className="hidden md:flex items-center space-x-6">
-            <Link 
-              to="/about" 
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            <button 
+              onClick={() => scrollToSection('hero')}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary uppercase"
+            >
+              Início
+            </button>
+           
+            <span className="text-muted-foreground">|</span>
+            <button 
+              onClick={() => scrollToSection('about')}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary uppercase"
             >
               Sobre
-            </Link>
-            <Link 
-              to="/#schedule" 
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            </button>
+            
+            <span className="text-muted-foreground">|</span>
+            <button 
+              onClick={() => scrollToSection('presentations')}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary uppercase"
             >
-              Agenda
-            </Link>
-            <Link 
-              to="/contact" 
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+              Apresentações
+            </button>
+            <span className="text-muted-foreground">|</span>
+            <button 
+              onClick={() => navigate('/demonstracao')}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary uppercase"
             >
-              Contato
-            </Link>
+              Solicitar Demonstração
+            </button>
+            <span className="text-muted-foreground">|</span>
             <Link 
               to="/alistamento" 
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary uppercase"
             >
               Alistamento
             </Link>
-            <ModeToggle />
+            {user && (
+              <span className="text-muted-foreground ">|</span>
+            )}
             {user ? (
               <>
                 <Link to="/dashboard">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="uppercase">
                     Dashboard
                   </Button>
                 </Link>
@@ -69,12 +93,13 @@ export default function Navbar() {
                   variant="outline" 
                   size="sm"
                   onClick={() => logout()}
+                  className="uppercase"
                 >
                   Sair
                 </Button>
               </>
             ) : (
-              <Link to="/login" className='hidden'>
+              <Link to="/login" className='hidden '>
                 <Button size="sm" >Login</Button>
               </Link>
             )}
@@ -105,27 +130,30 @@ export default function Navbar() {
             className="md:hidden border-t"
           >
             <div className="container mx-auto px-4 py-4 space-y-4">
-              <Link 
-                to="/about" 
-                className="block py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-                onClick={closeMenu}
+              <button 
+                onClick={() => scrollToSection('hero')}
+                className="block w-full text-left py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+              >
+                Início
+              </button>
+              <button 
+                onClick={() => scrollToSection('about')}
+                className="block w-full text-left py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
               >
                 Sobre
-              </Link>
-              <Link 
-                to="/#schedule" 
-                className="block py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-                onClick={closeMenu}
+              </button>
+              <button 
+                onClick={() => scrollToSection('presentations')}
+                className="block w-full text-left py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
               >
-                Agenda
-              </Link>
-              <Link 
-                to="/contact" 
-                className="block py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-                onClick={closeMenu}
+                Apresentações
+              </button>
+              <button 
+                onClick={() => scrollToSection('contact')}
+                className="block w-full text-left py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
               >
                 Contato
-              </Link>
+              </button>
               <Link 
                 to="/alistamento" 
                 className="block py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"

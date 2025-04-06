@@ -34,7 +34,7 @@ Landing page para a Esquadrilha da Fumaça, uma equipe de acrobacias aéreas do 
 
 1. Clone o repositório:
 ```bash
-git clone https://github.com/seu-usuario/landing-page-eda.git
+git clone https://github.com/Ruanfrm/five-m.git
 cd landing-page-eda
 ```
 

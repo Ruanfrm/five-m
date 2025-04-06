@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "author": "Ruan Freire",
+  "email": "freireruan19@gmail.com",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

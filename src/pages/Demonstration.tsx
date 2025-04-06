@@ -3,12 +3,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 import { 
   PlaneIcon, 
-  MapPinIcon,
+  
   ArrowRightIcon,
   CalendarIcon,
-  ClockIcon,
-  UsersIcon,
-  CheckIcon
+  UsersIcon
 } from 'lucide-react'
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'

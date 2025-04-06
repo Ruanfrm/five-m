@@ -23,12 +23,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { motion } from 'framer-motion'
-import { 
-  PlaneIcon, 
-  TrophyIcon, 
-  StarIcon, 
+import {
   ClockIcon, 
-  
   ChevronDownIcon
 } from 'lucide-react'
 
@@ -77,8 +73,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [upcomingPresentations, setUpcomingPresentations] = useState<Presentation[]>([])
-  const [pastPresentations, setPastPresentations] = useState<Presentation[]>([])
-  const [loadingPresentations, setLoadingPresentations] = useState(true)
   const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([])
   const [loadingCarousel, setLoadingCarousel] = useState(true)
   const [pilots, setPilots] = useState<Pilot[]>([])
@@ -114,16 +108,12 @@ export default function Home() {
     
     const fetchPresentations = async () => {
       try {
-        setLoadingPresentations(true)
-        
-        // Buscar apresentações aprovadas
         const presentationsQuery = query(
           collection(db, 'presentations'),
           where('status', '==', 'approved'),
           orderBy('date')
         )
         
-        // Usar onSnapshot para obter atualizações em tempo real
         unsubscribe = onSnapshot(presentationsQuery, (snapshot) => {
           const presentations = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -137,27 +127,18 @@ export default function Home() {
           })) as Presentation[]
           
           const today = new Date()
-          today.setHours(0, 0, 0, 0) // Normalizar para início do dia
+          today.setHours(0, 0, 0, 0)
           
-          // Separar em próximas e anteriores
           const upcoming = presentations
             .filter(p => isToday(p.date) || isBefore(today, p.date))
-            .sort((a, b) => a.date.getTime() - b.date.getTime()) // Ordenar da mais próxima para a mais distante
-          
-          const past = presentations
-            .filter(p => !isToday(p.date) && isBefore(p.date, today))
-            .sort((a, b) => b.date.getTime() - a.date.getTime()) // Ordenar da mais recente para a mais antiga
+            .sort((a, b) => a.date.getTime() - b.date.getTime())
           
           setUpcomingPresentations(upcoming)
-          setPastPresentations(past)
-          setLoadingPresentations(false)
         }, (error) => {
           console.error('Erro ao observar apresentações:', error)
-          setLoadingPresentations(false)
         })
       } catch (error) {
         console.error('Erro ao configurar observador de apresentações:', error)
-        setLoadingPresentations(false)
       }
     }
     
@@ -261,39 +242,7 @@ export default function Home() {
     }
   }
 
-  // Função para calcular dias restantes
-  const getDaysRemaining = (date: Date): number => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    const presentationDate = new Date(date)
-    presentationDate.setHours(0, 0, 0, 0)
-    
-    // Diferença em milissegundos
-    const diffTime = presentationDate.getTime() - today.getTime()
-    
-    // Converter para dias
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  }
 
-  // Retorna o texto para o badge de tempo
-  const getTimeText = (date: Date): { text: string, color: string } => {
-    if (isToday(date)) {
-      return { text: 'Hoje', color: 'bg-blue-500' }
-    }
-    
-    const daysRemaining = getDaysRemaining(date)
-    
-    if (daysRemaining === 1) {
-      return { text: 'Amanhã', color: 'bg-green-500' }
-    } else if (daysRemaining <= 7) {
-      return { text: `${daysRemaining} dias`, color: 'bg-green-500' }
-    } else if (daysRemaining <= 30) {
-      return { text: `${daysRemaining} dias`, color: 'bg-yellow-500' }
-    } else {
-      return { text: `${daysRemaining} dias`, color: 'bg-purple-500' }
-    }
-  }
 
   return (
     <div className="min-h-screen bg-[#0A192F] text-white">
@@ -316,7 +265,7 @@ export default function Home() {
             className="text-center"
           >
             <h1 
-              className="mb-10 text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-b from-white via-blue-300 to-[#0A192F] bg-clip-text text-transparent animate-gradient-y bg-[length:100%_400%]"
+              className="mb-10 text-5xl md:text-7xl font-bold  bg-gradient-to-b from-white via-blue-300 to-[#0A192F] bg-clip-text text-transparent animate-gradient-y bg-[length:100%_400%]"
              
             >
               Esquadrilha da Fumaça
@@ -410,7 +359,7 @@ export default function Home() {
       </section>
 
       {/* Pilots Section */}
-      <section id="pilots" className="py-20 bg-[#0A192F]">
+      <section id="pilots" className="py-20 bg-[#0A192F] relative">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0 }}
@@ -418,99 +367,172 @@ export default function Home() {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl font-bold mb-12 text-center">Nossos Pilotos</h2>
+            <h2 className="text-4xl font-bold mb-12 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-white">
+              Nossa Formação
+            </h2>
             
             <div className="relative w-full max-w-4xl mx-auto">
-              {/* Formação dos A-29 */}
-              <div className="relative h-[500px] ">
+              {/* Formação dos A-29 - Mobile First */}
+              <div className="relative h-[600px] sm:h-[500px] flex flex-col items-center">
                 {/* Líder */}
-                <div className="absolute left-1/2 -translate-x-1/2 top-0 text-center">
-                  <p className="text-sm font-semibold mb-1">#1 - Líder</p>
-                  <p className="text-sm text-gray-400">
-                    {pilots.find(p => p.position === "1")?.name || ""}
-                  </p>
-                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
-                 
+                <div className="absolute w-full sm:w-auto text-center" style={{ top: '2%' }}>
+                  <div className="relative inline-block">
+                    <div className="absolute inset-0 bg-blue-500/20 blur-xl"></div>
+                    <div className="relative">
+                      <p className="text-xs sm:text-sm font-semibold mb-1 text-blue-400">#1 - Líder</p>
+                      <p className="text-xs sm:text-sm text-blue-100/80 mb-2">
+                        {pilots.find(p => p.position === "1")?.name || ""}
+                      </p>
+                      <img 
+                        src="src/assets/a29.svg" 
+                        alt="A-29" 
+                        className="w-16 sm:w-24 mx-auto drop-shadow-[0_0_10px_rgba(66,153,225,0.5)]" 
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Elementos 2 e 3 */}
-                <div className="absolute right-[35%] top-[25%] text-center">
-                  <p className="text-sm font-semibold mb-1">#2 - Ala Direito</p>
-                  <p className="text-sm text-gray-400">
-                    {pilots.find(p => p.position === "2")?.name || ""}
-                  </p>
-                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
-                  
-                </div>
-                <div className="absolute left-[35%] top-[25%] text-center">
-                  <p className="text-sm font-semibold mb-1">#3 - Ala Esquerdo</p>
-                  <p className="text-sm text-gray-400">
-                    {pilots.find(p => p.position === "3")?.name || ""}
-                  </p>
-                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
-                 
-                </div>
-
-                {/* Elementos 4, 5 e 6 */}
-                <div className="absolute left-[20%] top-[50%] text-center">
-                  <p className="text-sm font-semibold mb-1">#5 - Ala Esquerdo Externo</p>
-                  <p className="text-sm text-gray-400">
-                    {pilots.find(p => p.position === "5")?.name || ""}
-                  </p>
-                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
-                  
-                </div>
-                <div className="absolute left-1/2 -translate-x-1/2 top-[50%] text-center">
-                  <p className="text-sm font-semibold mb-1">#4 - Ferrolho</p>
-                  <p className="text-sm text-gray-400">
-                    {pilots.find(p => p.position === "4")?.name || ""}
-                  </p>
-                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
-                  
-                </div>
-                <div className="absolute right-[20%] top-[50%] text-center">
-                  <p className="text-sm font-semibold mb-1">#6 - Ala Direito Externo</p>
-                  <p className="text-sm text-gray-400">
-                    {pilots.find(p => p.position === "6")?.name || ""}
-                  </p>
-                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
-                  
+                {/* Segunda Linha (2 e 3) */}
+                <div className="absolute w-full flex justify-center gap-20 sm:gap-32" style={{ top: '20%' }}>
+                  {/* Ala Esquerdo */}
+                  <div className="text-center">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-blue-500/20 blur-xl"></div>
+                      <div className="relative">
+                        <p className="text-xs sm:text-sm font-semibold mb-1 text-blue-400 mt-5">#3 - Ala Esquerdo</p>
+                        <p className="text-xs sm:text-sm text-blue-100/80 mb-2">
+                          {pilots.find(p => p.position === "3")?.name || ""}
+                        </p>
+                        <img 
+                          src="src/assets/a29.svg" 
+                          alt="A-29" 
+                          className="w-16 sm:w-24 mx-auto drop-shadow-[0_0_10px_rgba(66,153,225,0.5)]" 
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Ala Direito */}
+                  <div className="text-center">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-blue-500/20 blur-xl"></div>
+                      <div className="relative">
+                        <p className="text-xs sm:text-sm font-semibold mb-1 text-blue-400 mt-5">#2 - Ala Direito</p>
+                        <p className="text-xs sm:text-sm text-blue-100/80 mb-2">
+                          {pilots.find(p => p.position === "2")?.name || ""}
+                        </p>
+                        <img 
+                          src="src/assets/a29.svg" 
+                          alt="A-29" 
+                          className="w-16 sm:w-24 mx-auto drop-shadow-[0_0_10px_rgba(66,153,225,0.5)]" 
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Elemento 7 (base) */}
-                <div className="absolute left-1/2 -translate-x-1/2 top-[75%] text-center">
-                  <p className="text-sm font-semibold mb-1">#7 - Isolado</p>
-                  <p className="text-sm text-gray-400">
-                    {pilots.find(p => p.position === "7")?.name || ""}
-                  </p>
-                  <img src="src/assets/a29.svg" alt="A-29" className="w-24 mb-1" />
-                  
+                {/* Terceira Linha (4, 5 e 6) */}
+                <div className="absolute w-full flex justify-center gap-8 sm:gap-16" style={{ top: '45%' }}>
+                  {/* Ala Esquerdo Externo */}
+                  <div className="text-center">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-blue-500/20 blur-xl"></div>
+                      <div className="relative">
+                        <p className="text-xs sm:text-sm font-semibold mb-1 text-blue-400 mt-8">#5 - Ala Esquerdo Externo</p>
+                        <p className="text-xs sm:text-sm text-blue-100/80 mb-2">
+                          {pilots.find(p => p.position === "5")?.name || ""}
+                        </p>
+                        <img 
+                          src="src/assets/a29.svg" 
+                          alt="A-29" 
+                          className="w-16 sm:w-24 mx-auto drop-shadow-[0_0_10px_rgba(66,153,225,0.5)]" 
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Ferrolho */}
+                  <div className="text-center">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-blue-500/20 blur-xl"></div>
+                      <div className="relative">
+                        <p className="text-xs sm:text-sm font-semibold mb-1 text-blue-400 mt-8">#4 - Ferrolho</p>
+                        <p className="text-xs sm:text-sm text-blue-100/80 mb-2">
+                          {pilots.find(p => p.position === "4")?.name || ""}
+                        </p>
+                        <img 
+                          src="src/assets/a29.svg" 
+                          alt="A-29" 
+                          className="w-16 sm:w-24 mx-auto drop-shadow-[0_0_10px_rgba(66,153,225,0.5)]" 
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Ala Direito Externo */}
+                  <div className="text-center">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-blue-500/20 blur-xl"></div>
+                      <div className="relative">
+                        <p className="text-xs sm:text-sm font-semibold mb-1 text-blue-400 mt-8">#6 - Ala Direito Externo</p>
+                        <p className="text-xs sm:text-sm text-blue-100/80 mb-2">
+                          {pilots.find(p => p.position === "6")?.name || ""}
+                        </p>
+                        <img 
+                          src="src/assets/a29.svg" 
+                          alt="A-29" 
+                          className="w-16 sm:w-24 mx-auto drop-shadow-[0_0_10px_rgba(66,153,225,0.5)]" 
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Isolado */}
+                <div className="absolute w-full text-center" style={{ top: '75%' }}>
+                  <div className="relative inline-block">
+                    <div className="absolute inset-0 bg-blue-500/20 blur-xl"></div>
+                    <div className="relative">
+                      <p className="text-xs sm:text-sm font-semibold mb-1 text-blue-400 mt-5">#7 - Isolado</p>
+                      <p className="text-xs sm:text-sm text-blue-100/80 mb-2">
+                        {pilots.find(p => p.position === "7")?.name || ""}
+                      </p>
+                      <img 
+                        src="src/assets/a29.svg" 
+                        alt="A-29" 
+                        className="w-16 sm:w-24 mx-auto drop-shadow-[0_0_10px_rgba(66,153,225,0.5)]" 
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Grid de pilotos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-24">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mt-16 sm:mt-24">
                 {loadingPilots ? (
-                  // Esqueleto de carregamento
                   Array.from({ length: 7 }).map((_, index) => (
-                    <div key={index} className="bg-[#112240] rounded-lg p-4 text-center animate-pulse">
-                      <div className="w-24 h-24 mx-auto mb-4 bg-gray-700 rounded-full"></div>
-                      <div className="h-4 bg-gray-700 rounded w-3/4 mx-auto mb-2"></div>
-                      <div className="h-3 bg-gray-700 rounded w-1/2 mx-auto"></div>
+                    <div key={index} className="bg-blue-900/20 rounded-lg p-3 sm:p-4 backdrop-blur-sm border border-blue-500/20 animate-pulse">
+                      <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 sm:mb-4 bg-blue-800/50 rounded-full"></div>
+                      <div className="h-3 sm:h-4 bg-blue-800/50 rounded w-3/4 mx-auto mb-2"></div>
+                      <div className="h-2 sm:h-3 bg-blue-800/50 rounded w-1/2 mx-auto"></div>
                     </div>
                   ))
                 ) : pilots.length > 0 ? (
                   pilots.sort((a, b) => Number(a.position) - Number(b.position)).map((pilot) => (
-                    <div key={pilot.id} className="bg-[#112240] rounded-lg p-4 text-center">
-                      <div className="w-24 h-24 mx-auto mb-4 bg-gray-700 rounded-full overflow-hidden">
+                    <motion.div
+                      key={pilot.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="bg-blue-900/20 rounded-lg p-3 sm:p-4 backdrop-blur-sm border border-blue-500/20 hover:border-blue-400/40 transition-all duration-300"
+                    >
+                      <div className="relative w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 sm:mb-4">
+                        <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl"></div>
                         <img 
                           src={pilot.photoURL} 
                           alt={pilot.name} 
-                          className="w-full h-full object-cover"
+                          className="relative w-full h-full object-cover rounded-full border-2 border-blue-500/50"
                         />
                       </div>
-                      <h3 className="text-lg font-semibold">{pilot.name}</h3>
-                      <p className="text-sm text-gray-400">
+                      <h3 className="text-sm sm:text-base font-semibold text-white mb-1">{pilot.name}</h3>
+                      <p className="text-xs sm:text-sm text-blue-400">
                         {(() => {
                           switch (pilot.position) {
                             case "1": return "1 - Líder"
@@ -524,10 +546,10 @@ export default function Home() {
                           }
                         })()}
                       </p>
-                    </div>
+                    </motion.div>
                   ))
                 ) : (
-                  <div className="col-span-full text-center py-12 text-gray-400">
+                  <div className="col-span-full text-center py-12 text-blue-100/60">
                     Nenhum piloto cadastrado.
                   </div>
                 )}
